@@ -11,4 +11,6 @@ structure Either = struct
   val isLeft :  ('a, 'b) t -> bool
   val isRight :  ('a, 'b) t -> bool
   val equal : ('a * 'a -> bool) -> ('b * 'b -> bool) -> (('a, 'b) t * ('a, 'b) t -> bool)
+  val getLeft : ('a, 'b) t -> 'a option
+  val getRight : ('a, 'b) t -> 'b option
 end

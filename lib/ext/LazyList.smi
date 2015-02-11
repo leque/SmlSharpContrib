@@ -1,0 +1,280 @@
+_require "basis.smi"
+_require "ext/Either.smi"
+_require "ext/Susp.smi"
+
+(**
+ * A structure to create / manipulate lazy lists.
+ * Lazy Lists are a cousin to lists where the computation of each elements
+ * is delayed. Elements are not computed until needed.
+ *
+ * Lazy Lists are finite or infinite.
+ *
+ * Some function may not terminate on infinite lists.
+ * For example, [LazyList.length xs] does not terminate if [xs] is infinite.
+ * [LazyList.find p xs] does not terminate if there does not exist
+ * a element [x] in [xs] that satisfies a predicate [p].
+ * In such case, however, [LazyList.filter p xs] terminates,
+ * but [LazyList.hd (LazyList.filter p xs)] does not terminate.
+ * Similarly, [LazyList.rev xs] terminates,
+ * but [LazyList.hd (LazyList.rev xs)] does not terminates.
+ *
+ * Calling [LazyList.filter] or [LazyList.rev] itself does not compute
+ * lazy lists, and [LazyList.hd] tries to compute the first element of
+ * the result of these functions, and blocks.
+ *)
+structure LazyList = struct
+  (**
+   * internal representation of lazy lists.
+   * We export these for pattern matching.
+   *)
+  datatype 'a node = Nil | Cons of 'a * 'a node Susp.t
+
+  (**
+   * lazy lists type.
+   *)
+  type 'a t = 'a node Susp.t
+
+  (**
+   * unwrap outermost suspension
+   * This function evaluates the first element of [xs] if any.
+   *)
+  val next : 'a t -> 'a node
+
+  (**
+   * smart constructor
+   *)
+  val nil_ : unit -> 'a t
+
+  (**
+   * smart constructor
+   *)
+  val cons : ('a * 'a t) -> 'a t
+
+  (**
+   * [null xs] return [true] if [xs] is empty.
+   * This function evaluates the first element of [xs] if any.
+   *)
+  val null : 'a t -> bool
+
+  (**
+   * non-strict left folding
+   * This function itself does not evaluates the elements of [xs].
+   *)
+  val foldl : ('a * 'b Susp.t -> 'b Susp.t) -> 'b Susp.t -> 'a t -> 'b Susp.t
+
+  (**
+   * strict left folding
+   * This function evaluates all the elements of [xs].
+   * This function is tail-recursive
+   *)
+  val foldl' : ('a * 'b -> 'b) -> 'b -> 'a t -> 'b
+
+  (**
+   * non-strict right folding
+   * This function itself does not evaluates the elements of [xs].
+   *)
+  val foldr : ('a * 'b Susp.t -> 'b Susp.t) -> 'b Susp.t -> 'a t -> 'b Susp.t
+
+  (**
+   * strict right folding
+   * This function evaluates all the elements of [xs].
+   *)
+  val foldr' : ('a * 'b -> 'b) -> 'b -> 'a t -> 'b
+
+  (**
+   * [hd xs] returns the first element of [xs] if [xs] is not empty.
+   * This function evaluates the first element of [xs] if any.
+   *)
+  val hd : 'a t -> 'a option
+
+  (**
+   * [tl xs] returns the tail of [xs] if [xs] is not empty.
+   * This function evaluates the first element of [xs] if any.
+   *)
+  val tl : 'a t -> 'a t option
+
+  (**
+   * [length xs] returns the length of [xs].
+   * This function evaluates all the elements of [xs].
+   *)
+  val length : 'a t -> int
+
+
+  (**
+   * [last xs] returns the last element of [xs] if [xs] is not empty.
+   * This function evaluates all the elements of [xs].
+   *)
+  val last : 'a t -> 'a option
+
+  (**
+   * [getItem xs] returns a pair of the first element and tail of [xs]
+   * if [xs] is not empty.
+   * This function evaluates the first element of [xs].
+   *)
+  val getItem : 'a t -> ('a * 'a t) option
+
+  (**
+   * [nth (xs, n)] returns [n]-th element of [xs].
+   * If [length xs] < [n] then returns [NONE].
+   * This function evaluates the first [n] elements of [xs].
+   *)
+  val nth : ('a t * int) -> 'a option
+
+  (**
+   * [take (xs, n)] returns the prefix of [xs] of length [n].
+   * If [length xs] < [n] then returns [xs] itself.
+   * This function itself does not evaluates the elements of [xs].
+   *)
+  val take : ('a t * int) -> 'a t
+
+  (**
+   * [drop (xs, n)] returns the suffix of [xs] after the first [n] elements.
+   * If [length xs] < [n] then returns [nil_ ()].
+   * This function itself does not evaluates the elements of [xs].
+   *)
+  val drop : ('a t * int) -> 'a t
+
+  (**
+   * append.
+   * This function itself does not evaluates the elements of [xs].
+   *)
+  val append : ('a t * 'a t) -> 'a t
+
+  (**
+   * [revAppend (xs, ys)] is same as [append (rev xs, ys)].
+   * This function itself does not evaluates the elements of [xs].
+   *)
+  val revAppend : ('a t * 'a t) -> 'a t
+
+  (**
+   * reverse.
+   * This function itself does not evaluates the elements of [xs].
+   *)
+  val rev : 'a t -> 'a t
+
+  (**
+   * concatenation.
+   * This function itself does not evaluates the elements of [xs].
+   *)
+  val concat : 'a t t -> 'a t
+
+  (**
+   * [app f xs] applies [f] to each element of [xs].
+   * This function evaluates all the elements of [xs].
+   *)
+  val app : ('a -> unit) -> 'a t -> unit
+
+  (**
+   * This function itself does not evaluates the elements of [xs].
+   *)
+  val map : ('a -> 'b) -> 'a t -> 'b t
+
+  (**
+   * This function itself does not evaluates the elements of [xs].
+   *)
+  val mapPartial : ('a -> 'b option) -> 'a t -> 'b t
+
+  (**
+   * For a lazy list [{x1, x2, ..., xi, ...}],
+   * if [p xi] is true, this function evaluates the first [i] element of [xs]
+   * This function evaluates the first [i] element.
+   *)
+  val find : ('a -> bool) -> 'a t -> 'a option
+
+  (**
+   * This function itself does not evaluates the elements of [xs].
+   *)
+  val filter : ('a -> bool) -> 'a t -> 'a t
+
+  (**
+   * This function itself does not evaluates the elements of [xs].
+   *)
+  val partition : ('a -> bool) -> 'a t -> ('a t * 'a t)
+
+  (**
+   * This function evaluates all the elements of [xs].
+   *)
+  val exists : ('a -> bool) -> 'a t -> bool
+
+  (**
+   * This function evaluates all the elements of [xs].
+   *)
+  val all : ('a -> bool) -> 'a t -> bool
+
+  (**
+   * [tabulate (n, f)] creates a lazy list of length [n] where
+   * [i]-th element is computed with [f i].
+   *)
+  val tabulate : (int * (int -> 'a)) -> 'a t
+
+  (**
+   * [collate f (xs, ys)] compares lazy lists [xs] and [ys]
+   * in lexico-graphic order.
+   * This function evaluates elements of [xs] and [ys]
+   * until the result is determined.
+   *)
+  val collate : ('a * 'a -> order) -> ('a t * 'a t) -> order
+
+  (**
+   * This function itself does not evaluates the elements of [xs].
+   *)
+  val intersperse : ('a * 'a t) -> 'a t
+
+  (**
+   * This function itself does not evaluates the elements of [xs].
+   *)
+  val intercalate : ('a t * 'a t t) -> 'a t
+
+  (**
+   * [iterate f init] creates a infinite lazy list
+   * [{init, f init, f (f init), ...}].
+   *)
+  val iterate : ('a -> 'a) -> 'a -> 'a t
+
+
+  (**
+   * [repeat x] creates a inifinite lazy list [{x, x, x, ...}].
+   *)
+  val repeat : 'a -> 'a t
+
+
+  (**
+   * [replicate (n, x)] creates a lazy lists [{x, x, ...}] of length [n].
+   *)
+  val replicate : (int * 'a) -> 'a t
+
+  (**
+   * [cycle xs] creates a lazy list
+   * [{x1, x2, x3, ..., xn, x1, x2, ..., xn, x1, ....}]
+   * for a lazy list [xs = {x1, x2, ..., xn}].
+   *)
+  val cycle : 'a t -> 'a t
+
+  (**
+   * non-strict
+   *)
+  val unfoldr : ('a -> ('b * 'a) option) -> 'a -> 'b t
+
+  (**
+   * [lengthGreaterThan (n, xs)] returns true if the length of [xs] > [n].
+   * This function evaluates the first [n] elements of [xs].
+   *)
+  val lengthGreaterThan : (int * 'a t) -> bool
+
+  val zipWith : ('a * 'b -> 'c) -> ('a t * 'b t) -> 'c t
+
+  val zip : ('a t * 'b t) -> ('a * 'b) t
+
+  val unzip : ('a * 'b) t -> ('a t * 'b t)
+
+  (**
+   * [fromList lis] creates a finite lazy list from a list [lis].
+   *)
+  val fromList : 'a list -> 'a t
+
+  (**
+   * [toList xs] converts a lazy list [xs] to a list.
+   * This function evaluates all the element of [xs].
+   *)
+  val toList : 'a t -> 'a list
+end

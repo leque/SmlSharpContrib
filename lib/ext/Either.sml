@@ -28,4 +28,10 @@ structure Either = struct
 
   fun isRight x =
     not $ isLeft x
+
+  fun getLeft (Left x) = SOME x
+    | getLeft (Right x) = NONE
+
+  fun getRight (Left x) = NONE
+    | getRight (Right x) = SOME x
 end
