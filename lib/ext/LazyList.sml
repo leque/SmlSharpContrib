@@ -209,13 +209,25 @@ structure LazyList = struct
       Susp.lazy (fn () => cons (init, iterate f (f init)))
 
   fun repeat x =
-      Susp.lazy (fn () => cons (x, repeat x))
+      let
+        val xs = ref (nil_ ())
+        fun f () = Susp.lazy (fn () => cons (x, !xs))
+      in
+        xs := f ();
+        !xs
+      end
 
   fun replicate (n, x) =
       take (repeat x, n)
 
   fun cycle xs =
-      Susp.lazy (fn () => append (xs, cycle xs))
+      let
+        val ys = ref (nil_ ())
+        fun f () = Susp.lazy (fn () => append (xs, !ys))
+      in
+        ys := f();
+        !ys
+      end
 
   fun unfoldr f init =
       Susp.lazy
@@ -258,13 +270,13 @@ structure LazyList = struct
   fun break p xs =
       span (not o p) xs
 
-  fun lengthGreaterThan (n, xs) =
+  fun lengthGreaterThan (xs, n) =
       if n < 0 then
         true
       else
         case next xs of
             Nil => false
-          | Cons (_, xs') => lengthGreaterThan (n - 1, xs')
+          | Cons (_, xs') => lengthGreaterThan (xs', n - 1)
 
   fun zipWith f (xs, ys) =
       Susp.lazy

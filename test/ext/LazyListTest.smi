@@ -1,0 +1,9 @@
+_require "basis.smi"
+_require "smlunit-lib.smi"
+_require "ext/Std.smi"
+_require "ext/Susp.smi"
+_require "ext/LazyList.smi"
+
+structure LazyListTest = struct
+  val suite : unit -> SMLUnit.Test.test
+end

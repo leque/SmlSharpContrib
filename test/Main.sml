@@ -6,6 +6,7 @@ val suites = SMLUnit.Test.TestList [
   QueueTest.suite (),
   StackTest.suite (),
   SuspTest.suite (),
+  LazyListTest.suite (),
   ParserTest.suite (),
   JsonDecoderTest.suite ()
 ]
